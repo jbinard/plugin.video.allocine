@@ -107,6 +107,14 @@ __output_format__ = "json"
 __media_format__ = "mp4-hip"
 
 
+def addItem(name):
+    ok = True
+    liz = xbmcgui.ListItem(name)
+    ok = xbmcplugin.addDirectoryItem(handle=int(sys.argv[1]), url="",
+            listitem=liz)
+    return ok
+    
+
 def addLink(name, url, iconimage, c_items=None):
     ok = True
     liz = xbmcgui.ListItem(name, iconImage="DefaultVideo.png",
@@ -383,8 +391,8 @@ def get_movies_list(type_filter, order="datedesc"):
                     if 'directors' in movie['castingShort']:
                         infos['director'] = movie['castingShort']['directors'].encode('utf-8')
                     # Cannot get this one to work...
-                    # if 'actors' in movie['castingShort']:
-                    #    infos['cast'] = movie['castingShort']['actors'].split(', ')
+                    if 'actors' in movie['castingShort']:
+                        infos['cast'] = movie['castingShort']['actors'].split(', ')
                 if 'genre' in movie:
                     try:
                         infos['genre'] = movie['genre'][0]['$'].encode('utf-8')
@@ -412,6 +420,9 @@ def get_movie_videos(code, mode='trailers'):
     ])
     result = __getJson(method, query_string)
 
+    if 'hasShowtime' in result['movie']:
+        addDir("Voir les horaires en salles", code, 9, "")
+
     if 'media' in result['movie']:
         for media in result['movie']['media']:
             if mode == 'trailers':
@@ -437,6 +448,63 @@ def get_movie_videos(code, mode='trailers'):
             addDir("Afficher les interviews", code, 5, "")
         if shows:
             addDir("Afficher les émissions", code, 6, "")
+
+
+def get_movie_theaterslist(code):
+    if __settings__.getSetting('zip') and __settings__.getSetting('radius'):
+        "Get theaters list"
+        method = "showtimelist"
+        query_string = OrderedDict([
+                ('partner', __partner_key__),
+                ('zip', __settings__.getSetting('zip')),
+                ('radius', __settings__.getSetting('radius')),
+                ('movie', code),
+                ('format', __output_format__)
+
+        ])
+        result = __getJson(method, query_string)
+        
+        if 'theaterShowtimes' in result['feed']:
+            for theater in result['feed']['theaterShowtimes']:
+                params = theater['place']['theater']['code'] + ',' + code
+                addDir(theater['place']['theater']['name'].encode('utf8'), params, 10, "")
+    else:
+        popup = xbmcgui.Dialog().ok("Erreur", "Veuillez paramétrer votre code postal et le rayon de", "recherche dans les réglages du plugin.")
+
+
+def get_theater_showtimelist(params, mode='versions'):
+    "Get showtime list"
+    method = "showtimelist"
+    query_params = params.split(',')
+    query_string = OrderedDict([
+            ('partner', __partner_key__),
+            ('theaters', query_params[0]),
+            ('movie', query_params[1]),
+            ('format', __output_format__)
+
+    ])
+    result = __getJson(method, query_string)
+    
+    if 'theaterShowtimes' in result['feed']:
+        if mode == 'versions':
+            i = 0
+            for version in result['feed']['theaterShowtimes'][0]['movieShowtimes']:
+                link_version = version['version']['$'] + ', ' + version['screenFormat']['$']
+                url = params + ',' + str(i)
+                addDir(link_version.encode('utf8'), url, 11, "")
+                i += 1
+        elif mode == 'days':
+                version_number = int(query_params[2])
+                i = 0
+                for day in result['feed']['theaterShowtimes'][0]['movieShowtimes'][version_number]['scr']:
+                    url = params + ',' + str(i)
+                    addDir(day['d'].encode('utf8'), url, 12, "")
+                    i += 1
+        elif mode == 'showtimes':
+                version_number = int(query_params[2])
+                day_number = int(query_params[3])
+                for show in result['feed']['theaterShowtimes'][0]['movieShowtimes'][version_number]['scr'][day_number]['t']:
+                    addItem(show['$'].encode('utf8'))
 
 
 def get_video(code):
@@ -540,5 +608,17 @@ if mode == 8:
             except KeyError:
                 image = base_picture + "Logos_%s_160x128.jpg" % show['nameShort']
         addDir(show['$'].encode('utf8'), 'acshow:' + show['nameShort'], 7, image)
+
+if mode == 9:
+    get_movie_theaterslist(url)
+
+if mode == 10:
+	get_theater_showtimelist(url)
+
+if mode == 11:
+    get_theater_showtimelist(url, 'days')
+
+if mode == 12:
+    get_theater_showtimelist(url, 'showtimes')
 
 end_of_directory(OK)

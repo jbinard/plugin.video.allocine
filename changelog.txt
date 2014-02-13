@@ -1,3 +1,7 @@
+2.2.0 (2014-02-12)
+Upgrade by jbinard
+- Add theaters and showtime list for movies
+
 2.1.0 (2013-11-11)
 Takeover by Louis
  - Fixed urls : use the new signature process for api calls
