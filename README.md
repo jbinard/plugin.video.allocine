@@ -1,4 +1,4 @@
-xbmc-plugin-allocine
+plugin.video.allocine
 ====================
 
 Plugin allociné pour XBMC.
